@@ -7,7 +7,7 @@ if (!(await Bun.file("database.json").exists())) {
   await Bun.write("database.json", "[]");
 }
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const ROOT = import.meta.dir;
 const INPUT_DIR = join(ROOT, "input");
 const OUTPUT_DIR = join(ROOT, "output");
@@ -228,7 +228,7 @@ const server = Bun.serve({
   },
 });
 
-console.log(`🖼️  Image Optimizer running at http://localhost:${PORT}`);
+console.log(`🖼️  Image Optimizer running at ${PORT}`);
 
 // ── Cron: cleanup files older than 24 hours ──────────────────────────────────
 
