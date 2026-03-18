@@ -1,0 +1,8 @@
+node_modules/
+
+# Keep directories, ignore contents
+input/*
+output/*
+!input/.gitkeep
+!output/.gitkeep
+database.json

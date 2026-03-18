@@ -1,0 +1,12 @@
+{
+  "name": "image-conversion",
+  "version": "1.0.0",
+  "description": "Image optimizer using Bun and Sharp.js",
+  "scripts": {
+    "dev": "bun --watch server.ts",
+    "start": "bun server.ts"
+  },
+  "dependencies": {
+    "sharp": "^0.33.2"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules
+input
+output
+.git
+.gitignore
+README.md
+database.json
+*.md
