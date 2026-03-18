@@ -9,6 +9,7 @@ A lightweight image optimization tool built with **Bun** and **Sharp.js**. Uploa
 - **Resize & Optimise** — Resize and convert to WebP in one step
 - **History** — Track all past optimizations with file size comparisons
 - **Download** — Download optimized images directly from the browser
+- **Forgetful** — Forget all past optimizations within 24 hours
 
 ## Setup
 
