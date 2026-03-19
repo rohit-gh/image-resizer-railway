@@ -6,3 +6,4 @@ output/*
 !input/.gitkeep
 !output/.gitkeep
 database.json
+database_bulk.json
