@@ -31,7 +31,11 @@
   --clr-primary-hover: #4338ca;
   --clr-primary-light: #eef2ff;
   --clr-success: #16a34a;
+  --clr-success-light: #dcfce7;
   --clr-danger: #dc2626;
+  --clr-danger-light: #fef2f2;
+  --clr-warning: #d97706;
+  --clr-warning-light: #fffbeb;
   --radius: 10px;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -60,7 +64,7 @@ body {
 
 header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 header h1 {
@@ -88,6 +92,45 @@ header h1 {
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 1rem;
+}
+
+/* ── Tab Bar ─────────────────────────────────────────────────────────────── */
+
+.tab-bar {
+  display: flex;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  padding: 4px;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.55rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.tab-btn:hover {
+  color: var(--clr-text);
+}
+
+.tab-btn.active {
+  background: var(--clr-primary);
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.35);
+}
+
+.tab-hidden {
+  display: none !important;
 }
 
 /* ── Drop Zone ───────────────────────────────────────────────────────────── */
@@ -382,6 +425,27 @@ header h1 {
   white-space: nowrap;
 }
 
+.history-item__badge--success {
+  background: var(--clr-success-light);
+  color: var(--clr-success);
+}
+
+.history-item__badge--error {
+  background: var(--clr-danger-light);
+  color: var(--clr-danger);
+}
+
+.history-item__badge--processing {
+  background: var(--clr-primary-light);
+  color: var(--clr-primary);
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .history-item__download {
   color: var(--clr-primary);
   text-decoration: none;
@@ -392,6 +456,188 @@ header h1 {
 
 .history-item__download:hover {
   text-decoration: underline;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/*  BULK UPLOAD STYLES                                                      */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Bulk File Summary ───────────────────────────────────────────────────── */
+
+.bulk-file-summary {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--clr-primary);
+  font-weight: 600;
+  min-height: 1.2em;
+}
+
+.bulk-validation-msg {
+  font-size: 0.82rem;
+  min-height: 1.2em;
+  margin-top: 0.25rem;
+}
+
+.bulk-validation-msg.error {
+  color: var(--clr-danger);
+  font-weight: 500;
+}
+
+/* ── Bulk File List ──────────────────────────────────────────────────────── */
+
+.bulk-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.bulk-file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--clr-bg);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bulk-file-item__name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.bulk-file-item__size {
+  color: var(--clr-text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.bulk-file-item__remove {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--clr-text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--transition);
+  line-height: 1;
+}
+
+.bulk-file-item__remove:hover {
+  background: var(--clr-danger-light);
+  color: var(--clr-danger);
+}
+
+/* ── Bulk Slider Group ───────────────────────────────────────────────────── */
+
+.bulk-slider-group {
+  margin-bottom: 1.25rem;
+}
+
+.bulk-slider-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.bulk-slider-group input[type="range"] {
+  width: 100%;
+  accent-color: var(--clr-primary);
+}
+
+.bulk-info {
+  font-size: 0.78rem;
+  color: var(--clr-text-muted);
+  margin-bottom: 1rem;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Progress Bar ────────────────────────────────────────────────────────── */
+
+.progress-bar-track {
+  width: 100%;
+  height: 12px;
+  background: var(--clr-bg);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--clr-border);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #4f46e5, #7c3aed, #a855f7);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+  transition: width 0.4s ease;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.progress-text {
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--clr-text);
+}
+
+.progress-current {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--clr-text-muted);
+  margin-top: 0.25rem;
+  min-height: 1.2em;
+}
+
+/* ── Bulk Warning ────────────────────────────────────────────────────────── */
+
+.bulk-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--clr-warning-light);
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--clr-warning);
+  line-height: 1.4;
+}
+
+.bulk-warning svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Hidden sections ─────────────────────────────────────────────────────── */
+
+#bulk-progress-section[hidden],
+#bulk-result-section[hidden] {
+  display: none;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
@@ -418,5 +664,10 @@ header h1 {
     display: flex;
     justify-content: space-between;
     text-align: left;
+  }
+
+  .tab-btn {
+    font-size: 0.82rem;
+    padding: 0.5rem 0.5rem;
   }
 }
