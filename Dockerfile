@@ -13,6 +13,6 @@ COPY server.ts ./
 COPY public ./public/
 
 # Create storage directories
-RUN mkdir -p input output
+RUN mkdir -p input output bulk
 
 CMD ["bun", "server.ts"]

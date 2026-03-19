@@ -1,22 +1,33 @@
 import sharp from "sharp";
-import { readdir, mkdir, unlink, stat } from "node:fs/promises";
+import archiver from "archiver";
+import { createWriteStream } from "node:fs";
+import { readdir, mkdir, unlink, stat, rm } from "node:fs/promises";
 import { join, extname, basename } from "node:path";
 
-// create new database.json file if it doesn't exist
+// create new database files if they don't exist
 if (!(await Bun.file("database.json").exists())) {
   await Bun.write("database.json", "[]");
+}
+if (!(await Bun.file("database_bulk.json").exists())) {
+  await Bun.write("database_bulk.json", "[]");
 }
 
 const PORT = process.env.PORT || 3000;
 const ROOT = import.meta.dir;
 const INPUT_DIR = join(ROOT, "input");
 const OUTPUT_DIR = join(ROOT, "output");
+const BULK_DIR = join(ROOT, "bulk");
 const DB_PATH = join(ROOT, "database.json");
+const BULK_DB_PATH = join(ROOT, "database_bulk.json");
 const PUBLIC_DIR = join(ROOT, "public");
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILES = 100;
 
 // Ensure directories exist
 await mkdir(INPUT_DIR, { recursive: true });
 await mkdir(OUTPUT_DIR, { recursive: true });
+await mkdir(BULK_DIR, { recursive: true });
 
 // ── Rate Limiter ─────────────────────────────────────────────────────────────
 
@@ -54,6 +65,152 @@ async function writeDB(data: any[]) {
   await Bun.write(DB_PATH, JSON.stringify(data, null, 2));
 }
 
+async function readBulkDB(): Promise<any[]> {
+  const file = Bun.file(BULK_DB_PATH);
+  if (await file.exists()) {
+    return file.json();
+  }
+  return [];
+}
+
+async function writeBulkDB(data: any[]) {
+  await Bun.write(BULK_DB_PATH, JSON.stringify(data, null, 2));
+}
+
+// ── SSE Event Emitter ────────────────────────────────────────────────────────
+
+type SSEListener = (event: string, data: any) => void;
+const sseListeners = new Map<string, Set<SSEListener>>();
+
+function emitSSE(taskId: string, event: string, data: any) {
+  const listeners = sseListeners.get(taskId);
+  if (listeners) {
+    for (const listener of listeners) {
+      listener(event, data);
+    }
+  }
+}
+
+function addSSEListener(taskId: string, listener: SSEListener) {
+  if (!sseListeners.has(taskId)) {
+    sseListeners.set(taskId, new Set());
+  }
+  sseListeners.get(taskId)!.add(listener);
+}
+
+function removeSSEListener(taskId: string, listener: SSEListener) {
+  const listeners = sseListeners.get(taskId);
+  if (listeners) {
+    listeners.delete(listener);
+    if (listeners.size === 0) sseListeners.delete(taskId);
+  }
+}
+
+// ── Bulk Processing ──────────────────────────────────────────────────────────
+
+async function processBulkTask(
+  taskId: string,
+  files: { name: string; buffer: Buffer; originalSize: number }[],
+  scale: number,
+  quality: number
+) {
+  const taskDir = join(BULK_DIR, taskId);
+  await mkdir(taskDir, { recursive: true });
+
+  const totalCount = files.length;
+  let processedCount = 0;
+
+  try {
+    // Process each image
+    for (const file of files) {
+      const baseName = basename(file.name, extname(file.name));
+      let pipeline = sharp(file.buffer);
+      const metadata = await sharp(file.buffer).metadata();
+
+      const newWidth = Math.round((metadata.width || 800) * (scale / 100));
+      pipeline = pipeline.resize({ width: newWidth }).webp({ quality });
+
+      const outputBuffer = await pipeline.toBuffer();
+      await Bun.write(join(taskDir, `${baseName}.webp`), outputBuffer);
+
+      processedCount++;
+      const progress = Math.round((processedCount / totalCount) * 100);
+
+      // Update DB
+      const db = await readBulkDB();
+      const task = db.find((t) => t.id === taskId);
+      if (task) {
+        task.processedCount = processedCount;
+        task.progress = progress;
+        await writeBulkDB(db);
+      }
+
+      // Emit SSE
+      emitSSE(taskId, "progress", {
+        processedCount,
+        totalCount,
+        progress,
+        currentFile: file.name,
+      });
+    }
+
+    // Create zip
+    const zipFilename = `bulk-${taskId}.zip`;
+    const zipPath = join(BULK_DIR, zipFilename);
+
+    await new Promise<void>((resolve, reject) => {
+      const output = createWriteStream(zipPath);
+      const archive = archiver("zip", { zlib: { level: 9 } });
+
+      output.on("close", resolve);
+      archive.on("error", reject);
+      archive.pipe(output);
+      archive.directory(taskDir, false);
+      archive.finalize();
+    });
+
+    const zipStat = await stat(zipPath);
+    const zipSize = zipStat.size;
+
+    // Update DB as completed
+    const db = await readBulkDB();
+    const task = db.find((t) => t.id === taskId);
+    if (task) {
+      task.status = "completed";
+      task.progress = 100;
+      task.processedCount = totalCount;
+      task.zipFilename = zipFilename;
+      task.zipSize = zipSize;
+      task.completedAt = new Date().toISOString();
+      await writeBulkDB(db);
+    }
+
+    emitSSE(taskId, "completed", {
+      zipFilename,
+      zipSize,
+      totalInputSize: files.reduce((sum, f) => sum + f.originalSize, 0),
+    });
+
+    // Cleanup temp processed dir (zip is ready)
+    await rm(taskDir, { recursive: true, force: true });
+  } catch (err: any) {
+    console.error(`[Bulk] Task ${taskId} failed:`, err);
+
+    const db = await readBulkDB();
+    const task = db.find((t) => t.id === taskId);
+    if (task) {
+      task.status = "failed";
+      task.error = err.message || "Processing failed";
+      await writeBulkDB(db);
+    }
+
+    emitSSE(taskId, "error", { error: err.message || "Processing failed" });
+
+    // Cleanup on failure
+    await rm(taskDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 function corsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -83,6 +240,7 @@ const MIME: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".gif": "image/gif",
   ".ico": "image/x-icon",
+  ".zip": "application/zip",
 };
 
 // ── Server ───────────────────────────────────────────────────────────────────
@@ -185,6 +343,186 @@ const server = Bun.serve({
       }
     }
 
+    // ── POST /bulk-optimise ────────────────────────────────────────────────
+    if (req.method === "POST" && path === "/bulk-optimise") {
+      try {
+        const formData = await req.formData();
+        const scaleStr = formData.get("scale") as string | null;
+        const qualityStr = formData.get("quality") as string | null;
+        const scale = scaleStr ? Math.min(90, Math.max(10, parseInt(scaleStr, 10))) : 50;
+        const quality = qualityStr ? Math.min(100, Math.max(50, parseInt(qualityStr, 10))) : 70;
+
+        // Collect all files
+        const imageFiles: { name: string; buffer: Buffer; originalSize: number }[] = [];
+        for (const [key, value] of formData.entries()) {
+          if (key === "images" && value instanceof File) {
+            if (value.size > MAX_FILE_SIZE) {
+              return jsonResponse(
+                { error: `File "${value.name}" exceeds 10 MB limit (${(value.size / 1024 / 1024).toFixed(1)} MB)` },
+                400
+              );
+            }
+            imageFiles.push({
+              name: value.name || "upload.jpg",
+              buffer: Buffer.from(await value.arrayBuffer()),
+              originalSize: value.size,
+            });
+          }
+        }
+
+        if (imageFiles.length === 0) {
+          return jsonResponse({ error: "No images provided" }, 400);
+        }
+        if (imageFiles.length > MAX_FILES) {
+          return jsonResponse({ error: `Maximum ${MAX_FILES} files allowed per batch` }, 400);
+        }
+
+        const taskId = crypto.randomUUID();
+        const totalInputSize = imageFiles.reduce((sum, f) => sum + f.originalSize, 0);
+
+        // Create task entry
+        const task = {
+          id: taskId,
+          status: "processing",
+          progress: 0,
+          files: imageFiles.map((f) => ({ name: f.name, originalSize: f.originalSize })),
+          totalInputSize,
+          processedCount: 0,
+          totalCount: imageFiles.length,
+          zipFilename: null,
+          zipSize: null,
+          scale,
+          quality,
+          ip: clientIP,
+          createdAt: new Date().toISOString(),
+          completedAt: null,
+          error: null,
+        };
+
+        const db = await readBulkDB();
+        db.unshift(task);
+        await writeBulkDB(db);
+
+        // Start async processing (fire-and-forget)
+        processBulkTask(taskId, imageFiles, scale, quality);
+
+        return jsonResponse({ taskId });
+      } catch (err: any) {
+        console.error("Bulk upload error:", err);
+        return jsonResponse({ error: err.message || "Upload failed" }, 500);
+      }
+    }
+
+    // ── GET /bulk-events/:taskId ───────────────────────────────────────────
+    if (req.method === "GET" && path.startsWith("/bulk-events/")) {
+      const taskId = path.replace("/bulk-events/", "");
+
+      const db = await readBulkDB();
+      const task = db.find((t) => t.id === taskId);
+      if (!task) {
+        return jsonResponse({ error: "Task not found" }, 404);
+      }
+
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+
+          const send = (event: string, data: any) => {
+            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          };
+
+          // Send current state immediately
+          send("status", {
+            status: task.status,
+            progress: task.progress,
+            processedCount: task.processedCount,
+            totalCount: task.totalCount,
+            zipFilename: task.zipFilename,
+            zipSize: task.zipSize,
+            totalInputSize: task.totalInputSize,
+          });
+
+          // If already done, close the stream
+          if (task.status === "completed" || task.status === "failed") {
+            controller.close();
+            return;
+          }
+
+          // Listen for future events
+          const listener: SSEListener = (event, data) => {
+            try {
+              send(event, data);
+              if (event === "completed" || event === "error") {
+                removeSSEListener(taskId, listener);
+                controller.close();
+              }
+            } catch {
+              removeSSEListener(taskId, listener);
+            }
+          };
+
+          addSSEListener(taskId, listener);
+
+          // Heartbeat to keep connection alive
+          const heartbeat = setInterval(() => {
+            try {
+              controller.enqueue(encoder.encode(": heartbeat\n\n"));
+            } catch {
+              clearInterval(heartbeat);
+              removeSSEListener(taskId, listener);
+            }
+          }, 15000);
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          ...corsHeaders(),
+        },
+      });
+    }
+
+    // ── GET /bulk-status/:taskId ───────────────────────────────────────────
+    if (req.method === "GET" && path.startsWith("/bulk-status/")) {
+      const taskId = path.replace("/bulk-status/", "");
+      const db = await readBulkDB();
+      const task = db.find((t) => t.id === taskId);
+      if (!task) return jsonResponse({ error: "Task not found" }, 404);
+      return jsonResponse(task);
+    }
+
+    // ── GET /bulk-download/:taskId ─────────────────────────────────────────
+    if (req.method === "GET" && path.startsWith("/bulk-download/")) {
+      const taskId = path.replace("/bulk-download/", "");
+      const db = await readBulkDB();
+      const task = db.find((t) => t.id === taskId);
+      if (!task || task.status !== "completed" || !task.zipFilename) {
+        return jsonResponse({ error: "Download not available" }, 404);
+      }
+      const zipPath = join(BULK_DIR, task.zipFilename);
+      const zipFile = Bun.file(zipPath);
+      if (!(await zipFile.exists())) {
+        return jsonResponse({ error: "Zip file not found" }, 404);
+      }
+      return new Response(zipFile, {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${task.zipFilename}"`,
+          ...corsHeaders(),
+        },
+      });
+    }
+
+    // ── GET /bulk-history ──────────────────────────────────────────────────
+    if (req.method === "GET" && path === "/bulk-history") {
+      const db = await readBulkDB();
+      const userHistory = db.filter((entry) => entry.ip === clientIP);
+      return jsonResponse(userHistory);
+    }
+
     // ── GET /history ───────────────────────────────────────────────────────
     if (req.method === "GET" && path === "/history") {
       const db = await readDB();
@@ -256,6 +594,26 @@ async function cleanupOldFiles() {
     }
   }
 
+  // Clean bulk/ directory (zip files)
+  try {
+    const bulkFiles = await readdir(BULK_DIR);
+    for (const file of bulkFiles) {
+      if (file === ".gitkeep") continue;
+      const filePath = join(BULK_DIR, file);
+      const fileStat = await stat(filePath);
+      if (now - fileStat.mtimeMs > TWENTY_FOUR_HOURS) {
+        if (fileStat.isDirectory()) {
+          await rm(filePath, { recursive: true, force: true });
+        } else {
+          await unlink(filePath);
+        }
+        console.log(`[Cron] Deleted bulk: ${filePath}`);
+      }
+    }
+  } catch (err) {
+    console.error("[Cron] Error cleaning bulk dir:", err);
+  }
+
   // Clean database entries older than 24h
   try {
     const db = await readDB();
@@ -268,6 +626,20 @@ async function cleanupOldFiles() {
     }
   } catch (err) {
     console.error("[Cron] Error cleaning database:", err);
+  }
+
+  // Clean bulk database entries older than 24h
+  try {
+    const bulkDb = await readBulkDB();
+    const filtered = bulkDb.filter(
+      (entry) => now - new Date(entry.createdAt).getTime() <= TWENTY_FOUR_HOURS
+    );
+    if (filtered.length !== bulkDb.length) {
+      console.log(`[Cron] Removed ${bulkDb.length - filtered.length} old bulk DB entries`);
+      await writeBulkDB(filtered);
+    }
+  } catch (err) {
+    console.error("[Cron] Error cleaning bulk database:", err);
   }
 
   // Clear stale rate limits
