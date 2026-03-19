@@ -9,6 +9,7 @@ A lightweight image optimization tool built with **Bun** and **Sharp.js**. Uploa
 - **WebP Conversion** — Convert any image to 70% quality WebP
 - **Resize** — Scale image dimensions from 10% to 90%
 - **Resize & Optimise** — Resize and convert to WebP in one step
+- **Bulk Upload** — Upload up to 100 images, track real-time progress via SSE, and download a ZIP archive
 - **History** — Track all past optimizations with file size comparisons
 - **Download** — Download optimized images directly from the browser
 - **Forgetful** — Forget all past optimizations within 24 hours
@@ -60,6 +61,14 @@ Returns `database.json` contents (array of optimization records).
 ### `GET /output/:filename`
 
 Serves an optimized file from the `output/` directory.
+
+### Bulk API Methods
+
+- `POST /bulk-optimise`: Accepts `multipart/form-data` with `images` (up to 100), `scale`, and `quality`. Returns a JSON object with `{ taskId }`.
+- `GET /bulk-events/:taskId`: Server-Sent Events (SSE) stream for real-time progress updates.
+- `GET /bulk-status/:taskId`: Returns the current status and progress of a bulk task.
+- `GET /bulk-download/:taskId`: Serves the zipped `.zip` file of optimized images.
+- `GET /bulk-history`: Returns bulk optimization history records for the current user's session.
 
 ## Folder Structure
 
