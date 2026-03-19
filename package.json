@@ -1,7 +1,8 @@
 {
-  "name": "image-conversion",
+  "name": "image-resizer",
   "version": "1.0.0",
   "description": "Image optimizer using Bun and Sharp.js",
+  "license": "MIT",
   "scripts": {
     "dev": "bun --watch server.ts",
     "start": "bun server.ts"
