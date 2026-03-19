@@ -15,7 +15,16 @@
       <p class="subtitle">Convert, resize &amp; compress your images</p>
     </header>
 
-    <main>
+    <!-- Tab Bar -->
+    <nav class="tab-bar" id="tab-bar">
+      <button class="tab-btn active" data-tab="single">Single</button>
+      <button class="tab-btn" data-tab="bulk">Bulk Upload</button>
+    </nav>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!--  SINGLE TAB                                                      -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <main id="tab-single">
       <!-- Upload -->
       <section class="card" id="upload-section">
         <div class="drop-zone" id="drop-zone">
@@ -107,6 +116,92 @@
         <h2>History</h2>
         <div class="history-list" id="history-list">
           <p class="history-empty">No optimisations yet.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!--  BULK TAB                                                        -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <main id="tab-bulk" class="tab-hidden">
+
+      <!-- Bulk Upload -->
+      <section class="card" id="bulk-upload-section">
+        <div class="drop-zone" id="bulk-drop-zone">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p>Drag &amp; drop multiple images here</p>
+          <span class="drop-zone__or">or</span>
+          <label class="btn btn--outline" for="bulk-file-input">Browse Files</label>
+          <input type="file" id="bulk-file-input" class="sr-only" accept="image/*" multiple />
+        </div>
+        <p class="bulk-file-summary" id="bulk-file-summary"></p>
+        <p class="bulk-validation-msg" id="bulk-validation-msg"></p>
+
+        <!-- File List -->
+        <div class="bulk-file-list" id="bulk-file-list"></div>
+      </section>
+
+      <!-- Bulk Options -->
+      <section class="card" id="bulk-options-section">
+        <h2>Optimisation Settings</h2>
+
+        <div class="bulk-slider-group">
+          <label for="bulk-scale-range">Resize: <span id="bulk-scale-value">50</span>%</label>
+          <input type="range" id="bulk-scale-range" min="10" max="90" value="50" step="1" />
+          <div class="scale-labels">
+            <span>10%</span>
+            <span>90%</span>
+          </div>
+        </div>
+
+        <div class="bulk-slider-group">
+          <label for="bulk-quality-range">Quality: <span id="bulk-quality-value">70</span>%</label>
+          <input type="range" id="bulk-quality-range" min="50" max="100" value="70" step="1" />
+          <div class="scale-labels">
+            <span>50%</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <p class="bulk-info">All images will be resized &amp; converted to WebP.</p>
+
+        <button class="btn btn--primary" id="bulk-optimise-btn" disabled>Start Bulk Optimise</button>
+      </section>
+
+      <!-- Bulk Progress -->
+      <section class="card" id="bulk-progress-section" hidden>
+        <h2>Processing…</h2>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="bulk-progress-fill" style="width: 0%"></div>
+        </div>
+        <p class="progress-text" id="bulk-progress-text">0 / 0 files</p>
+        <p class="progress-current" id="bulk-progress-current"></p>
+      </section>
+
+      <!-- Bulk Result -->
+      <section class="card result-card" id="bulk-result-section" hidden>
+        <h2>Bulk Optimisation Complete</h2>
+        <div class="result-stats" id="bulk-result-stats"></div>
+        <a class="btn btn--primary" id="bulk-download-btn" download>Download ZIP</a>
+        <div class="bulk-warning" id="bulk-warning">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>Your download will be deleted 24 hours after processing completes.</span>
+        </div>
+      </section>
+
+      <!-- Bulk History -->
+      <section class="card" id="bulk-history-section">
+        <h2>Bulk History</h2>
+        <div class="history-list" id="bulk-history-list">
+          <p class="history-empty">No bulk optimisations yet.</p>
         </div>
       </section>
     </main>

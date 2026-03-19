@@ -5,4 +5,5 @@ output
 .gitignore
 README.md
 database.json
+database_bulk.json
 *.md
