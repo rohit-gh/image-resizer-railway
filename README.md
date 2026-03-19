@@ -1,5 +1,7 @@
 # Image Optimizer
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/60ce0g?referralCode=hUuv5P&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
 A lightweight image optimization tool built with **Bun** and **Sharp.js**. Upload images and convert to WebP, resize, or do both — all through a clean, mobile-responsive web UI.
 
 ## Features
