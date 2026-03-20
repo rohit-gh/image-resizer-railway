@@ -349,7 +349,7 @@ const server = Bun.serve({
         const formData = await req.formData();
         const scaleStr = formData.get("scale") as string | null;
         const qualityStr = formData.get("quality") as string | null;
-        const scale = scaleStr ? Math.min(90, Math.max(10, parseInt(scaleStr, 10))) : 50;
+        const scale = scaleStr ? Math.min(100, Math.max(10, parseInt(scaleStr, 10))) : 50;
         const quality = qualityStr ? Math.min(100, Math.max(50, parseInt(qualityStr, 10))) : 70;
 
         // Collect all files
