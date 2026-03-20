@@ -3,7 +3,9 @@ node_modules/
 # Keep directories, ignore contents
 input/*
 output/*
+bulk/*
 !input/.gitkeep
 !output/.gitkeep
+!bulk/.gitkeep
 database.json
 database_bulk.json
